@@ -43,20 +43,19 @@ jobs:
       - name: Commit SVG
         run: |
 
-          git config --global user.name "github-actions"
-
+         git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
-
+          
           if [ -d "model/diagrams" ]; then
-
-            git add model/diagrams/
-
-            git commit -m "Auto export diagrams" || echo "No changes"
-
-            git push
-
+            git add -f model/diagrams/
+            
+            # Cek apakah ada perubahan yang di-stage
+            if git diff --cached --quiet; then
+              echo "Tidak ada perubahan di diagrams, skip commit."
+            else
+              git commit -m "Auto export diagrams"
+              git push
+            fi
           else
-
             echo "Folder diagrams tidak ditemukan, skip commit."
-
           fi
