@@ -1,56 +1,30 @@
-name: Auto Export Archi
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+// ===== LOAD MODEL =====
+var modelPath = "/github/workspace/model/archiPKG.archimate";
+var model = archi.loadModel(modelPath);
+if (!model) {
+    console.log("MODEL TIDAK DITEMUKAN: " + modelPath);
+    exit();
+}
 
-permissions:
-  contents: write
+// ===== BUAT FOLDER OUTPUT =====
+var outputFolder = "/github/workspace/model/diagrams";
+var folder = new java.io.File(outputFolder);
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+if (!folder.exists()) folder.mkdirs();
 
-      - name: Install Xvfb
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y xvfb
+// ===== AMBIL SEMUA VIEW =====
+var views = model.getAllViews();
 
-      - name: Download Archi
-        run: |
-          wget https://github.com/archimatetool/archi.io/releases/download/5.7.0/Archi-Linux64-5.7.0.tgz
-          tar -xzf Archi-Linux64-5.7.0.tgz
-          chmod +x Archi/Archi
+// ===== EXPORT PNG =====
+for (var i = 0; i < views.size(); i++) {
+    var view = views.get(i);
+    var safeName = view.getName().replace(/[^a-zA-Z0-9]/g, "_");
+    var outputPath = outputFolder + "/" + safeName + ".png";
+    archi.commandLine.exportView(model, view, outputPath, "png");
+    console.log("Exported: " + outputPath);
+}
 
-      - name: Run Archi Export
-        run: |
-          xvfb-run --auto-servernum Archi/Archi \
-            -application com.archimatetool.commandline.app \
-            -consoleLog \
-            -nosplash \
-            --loadModel model \
-            --script.runScript scripts/export.ajs \
-            2>&1 | tee archi-output.log
-          echo "=== Hasil export ==="
-          find docs/diagrams/ -type f || echo "Folder docs/diagrams tidak ditemukan"
-
-      - name: Commit & Push Diagrams
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "actions@github.com"
-
-          git add -f docs/diagrams/
-
-          if git diff --cached --quiet; then
-            echo "Tidak ada perubahan, skip commit."
-          else
-            git commit -m "Auto export diagrams"
-            git push
-          fi
+// ===== CLOSE =====
+model.close();
+console.log("SELESAI EXPORT SEMUA DIAGRAM");
