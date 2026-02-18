@@ -1,5 +1,4 @@
 name: Auto Export Archi
-
 on:
   push:
     branches: [ main ]
@@ -11,7 +10,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
@@ -31,14 +29,25 @@ jobs:
           tar -xzf Archi-Linux64-5.7.0.tgz
           chmod +x Archi/Archi
 
-      - name: Run Archi
+      - name: Run Archi Export
         run: |
-         git config --global user.name "github-actions"
+          xvfb-run --auto-servernum Archi/Archi \
+            -application com.archimatetool.commandline.app \
+            -consoleLog \
+            -nosplash \
+            --loadModel model \
+            --script.runScript scripts/export.js \
+            2>&1 | tee archi-output.log
+          echo "=== Hasil export ==="
+          find model/diagrams/ -type f || echo "Folder model/diagrams tidak ditemukan"
+
+      - name: Commit & Push Diagrams
+        run: |
+          git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
-          
-          # Tambahkan semua perubahan di folder model
-          git add -f model/
-          
+
+          git add -f model/diagrams/
+
           if git diff --cached --quiet; then
             echo "Tidak ada perubahan, skip commit."
           else
