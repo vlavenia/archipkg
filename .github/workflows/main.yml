@@ -1,0 +1,43 @@
+name: Auto Export Archi
+
+on:
+  push:
+    paths:
+      - 'model/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Download Archi
+        run: |
+          wget https://www.archimatetool.com/downloads/archi-latest-linux64.tgz
+          tar -xzf archi-latest-linux64.tgz
+
+      - name: Run Archi Script
+        run: |
+          ./Archi/Archi -consoleLog \
+          -application com.archimatetool.commandline.app \
+          -nosplash \
+          -console \
+          -data workspace \
+          -vmargs \
+          -Darchi.scripting.script=scripts/export.ajs
+
+      - name: Commit SVG
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add docs
+          git commit -m "Auto export diagrams" || echo "No changes"
+          git push
