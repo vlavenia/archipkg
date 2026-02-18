@@ -33,29 +33,15 @@ jobs:
 
       - name: Run Archi
         run: |
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
-            ./Archi/Archi -consoleLog \
-            -application com.archimatetool.commandline.app \
-            -nosplash \
-            -model model/archiPKG.archimate \
-            -script scripts/export.ajs
-
-      - name: Commit SVG
-        run: |
-
          git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
           
-          if [ -d "model/diagrams" ]; then
-            git add -f model/diagrams/
-            
-            # Cek apakah ada perubahan yang di-stage
-            if git diff --cached --quiet; then
-              echo "Tidak ada perubahan di diagrams, skip commit."
-            else
-              git commit -m "Auto export diagrams"
-              git push
-            fi
+          # Tambahkan semua perubahan di folder model
+          git add -f model/
+          
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan, skip commit."
           else
-            echo "Folder diagrams tidak ditemukan, skip commit."
+            git commit -m "Auto export diagrams"
+            git push
           fi
