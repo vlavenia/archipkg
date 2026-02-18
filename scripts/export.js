@@ -1,36 +1,56 @@
-// ===== LOAD MODEL =====
-var modelPath = "/github/workspace/model/archiPKG.archimate";
-var model = archi.loadModel(modelPath);
+name: Auto Export Archi
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
-if (!model) {
-    console.log("MODEL TIDAK DITEMUKAN: " + modelPath);
-    exit();
-}
+permissions:
+  contents: write
 
-// ===== BUAT FOLDER OUTPUT =====
-var outputFolder = "/github/workspace/docs/diagrams";
-var folder = new java.io.File(outputFolder);
-if (!folder.exists()) folder.mkdirs();
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-// ===== AMBIL SEMUA VIEW =====
-var views = model.getAllViews();
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-// ===== EXPORT SVG =====
-for (var i = 0; i < views.size(); i++) {
+      - name: Install Xvfb
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y xvfb
 
-    var view = views.get(i);
+      - name: Download Archi
+        run: |
+          wget https://github.com/archimatetool/archi.io/releases/download/5.7.0/Archi-Linux64-5.7.0.tgz
+          tar -xzf Archi-Linux64-5.7.0.tgz
+          chmod +x Archi/Archi
 
-    // bersihkan nama file
-    var safeName = view.getName().replace(/[^a-zA-Z0-9]/g, "_");
+      - name: Run Archi Export
+        run: |
+          xvfb-run --auto-servernum Archi/Archi \
+            -application com.archimatetool.commandline.app \
+            -consoleLog \
+            -nosplash \
+            --loadModel model \
+            --script.runScript scripts/export.ajs \
+            2>&1 | tee archi-output.log
+          echo "=== Hasil export ==="
+          find docs/diagrams/ -type f || echo "Folder docs/diagrams tidak ditemukan"
 
-    var outputPath = outputFolder + "/" + safeName + ".svg";
+      - name: Commit & Push Diagrams
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
 
-    // export view
-    archi.commandLine.exportView(model, view, outputPath, "svg");
+          git add -f docs/diagrams/
 
-    console.log("Exported: " + outputPath);
-}
-
-// ===== CLOSE =====
-model.close();
-console.log("SELESAI EXPORT SEMUA DIAGRAM");
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan, skip commit."
+          else
+            git commit -m "Auto export diagrams"
+            git push
+          fi
